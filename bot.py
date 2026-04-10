@@ -2,14 +2,19 @@ import telebot
 from flask import Flask, request
 import os
 
-# ប្រើ Token ថ្មីដែលអ្នកបានផ្ដល់ឱ្យ
+# ព័ត៌មានដែលអ្នកបានផ្ដល់ឱ្យ
 TOKEN = "8726956835:AAGLYnQnVf5ge3yAcsZFXEXu7wrofrqQ_Os"
 MY_ID = 8710784205
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# កែសម្រួលកន្លែងនេះឱ្យសាមញ្ញបំផុតដើម្បីកុំឱ្យមាន Error
+# សម្រាប់ឆែកមើលថា Server ដើរឬអត់
+@app.route('/', methods=['GET', 'HEAD'])
+def index():
+    return "Bot is running!", 200
+
+# ផ្លូវសម្រាប់ទទួលសារពី Telegram
 @app.route('/' + TOKEN, methods=['POST'])
 def getMessage():
     if request.headers.get('content-type') == 'application/json':
@@ -17,24 +22,29 @@ def getMessage():
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return "!", 200
-    else:
-        return "Invalid content type", 403
+    return "Invalid", 403
 
-@app.route("/")
-def webhook():
+# ផ្លូវសម្រាប់ដំឡើង Webhook (សំខាន់បំផុត)
+@app.route("/set_webhook")
+def webhook_setup():
     bot.remove_webhook()
-    # ប្រាកដថា Link នេះត្រូវគ្នាជាមួយ Render របស់អ្នក
-    status = bot.set_webhook(url="https://my-forwarding-bot.onrender.com/" + TOKEN)
+    # ប្រើ Link របស់អ្នកឱ្យត្រូវតាម Render
+    url = f"https://my-forwarding-bot.onrender.com/{TOKEN}"
+    status = bot.set_webhook(url=url)
     if status:
-        return "Webhook set successfully!", 200
-    else:
-        return "Webhook failed!", 400
+        return "<h1>Webhook set successfully!</h1><p>Bot របស់អ្នកចាប់ផ្ដើមដំណើរការហើយ។</p>", 200
+    return "<h1>Webhook failed!</h1>", 400
 
+# មុខងារ Forward សារ
 @bot.message_handler(func=lambda message: True)
 def forward_msg(message):
-    info = f"👤 ពី: {message.from_user.first_name}"
-    if message.content_type == 'text':
-        bot.send_message(MY_ID, f"{info}\n💬 សារ: {message.text}")
+    try:
+        # បង្ហាញឈ្មោះអ្នកផ្ញើ និងសារ
+        sender_name = message.from_user.first_name
+        text_received = message.text
+        bot.send_message(MY_ID, f"👤 ពី: {sender_name}\n💬 សារ: {text_received}")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
